@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.github.leyfood_uz.twa",
+    "sha256_cert_fingerprints": ["B5:FE:AE:A6:A0:B2:94:A1:CB:47:74:56:B5:08:F4:D5:D7:19:C7:5D:69:FE:2A:F8:FD:AB:3A:81:C5:FB:8F:4F"]
+  }
+}]
