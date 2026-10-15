@@ -54,11 +54,14 @@ textarea{min-height:60px;resize:vertical}
 .cr .pr{min-width:86px;text-align:right}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.g4 input{padding:10px 6px;text-align:center}
 .chk{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;margin:2px 0 8px}.chk input{width:22px;height:22px;margin:0;accent-color:var(--red)}
+.add:disabled{background:#c9c2bf;color:#fff}.out{opacity:.5}.out .nm:after{content:"Tugadi";display:inline-block;background:#777;color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.pz{background:#d62828;color:#fff;padding:10px 16px;font-size:14px;font-weight:700;display:none}
 .back{border:0;background:none;color:var(--red);font-weight:700;font-size:15px;padding:6px 4px}
 </style>
 </head>
 <body>
 <header><h1>LEY FOOD</h1><p>📍 Chilonzor 18-kvartal, Parlament ro'parasi · 🕙 10:00–02:00</p><a class="tel" href="tel:+998907309996">📞 +998 90 730 99 96</a></header>
+<div class="pz" id="pz"></div>
 <div class="closed" id="closed">Hozir yopiqmiz. Buyurtmalar 10:00 dan 02:00 gacha qabul qilinadi.</div>
 
 <main id="mw"><div class="strip" id="strip"><span id="stx"></span><button id="clr1">🗑 Savatni tozalash</button></div><div id="menu"></div></main>
@@ -124,17 +127,29 @@ var Q={}, T="", P="", tg=window.Telegram&&Telegram.WebApp, inTg=!!(tg&&tg.initDa
 var $=function(i){return document.getElementById(i)};
 function f(n){return n.toLocaleString("ru-RU")+" so'm"}
 function isOpen(){var d=new Date(),h=(d.getUTCHours()+5)%24;return h>=10||h<2}
-var OPEN=isOpen();
+var OPEN=isOpen(), STOP=[], PAUZA=false, MIN=0;
+function canAdd(){return OPEN&&!PAUZA}
+function loadHolat(){
+  var api=null;try{api=new URLSearchParams(location.search).get("api")}catch(e){}
+  if(!api)return;
+  fetch(api+(api.indexOf("?")<0?"?":"&")+"holat=1",{cache:"no-store"}).then(function(r){return r.json()}).then(function(h){
+    STOP=h.stop||[];PAUZA=!!h.pauza;MIN=+h.min||0;
+    for(var id in Q){if(STOP.indexOf(Math.floor(id/2))>=0)delete Q[id]}
+    var pz=$("pz");if(PAUZA){pz.textContent="⏸ Hozir juda bandmiz, buyurtma vaqtincha qabul qilinmayapti"+(h.gacha?" ("+new Date(h.gacha).toLocaleTimeString("uz-UZ",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Tashkent"})+" gacha)":"")+". Birozdan keyin qayta oching 🙏";pz.style.display="block"}else pz.style.display="none";
+    if(view==="menu")render();else drawCo();
+  }).catch(function(){});
+}
 if(!OPEN)$("closed").style.display="block";
 
 function render(){
   var h="";
-  ORDER.forEach(function(k){var d=D[k];
-    h+='<div class="item"><div class="top"><div class="ic">'+d.e+'</div><div><div class="nm">'+d.n+(HIT[k]?'<span class="hit">Xit</span>':'')+'</div></div></div>';
+  ORDER.filter(function(k){return STOP.indexOf(k)<0}).concat(ORDER.filter(function(k){return STOP.indexOf(k)>=0})).forEach(function(k){var d=D[k];
+    var out=STOP.indexOf(k)>=0;
+    h+='<div class="item'+(out?' out':'')+'"><div class="top"><div class="ic">'+d.e+'</div><div><div class="nm">'+d.n+(HIT[k]?'<span class="hit">Xit</span>':'')+'</div></div></div>';
     [0,1].forEach(function(j){var id=k*2+j,q=Q[id]||0;
       h+='<div class="sz"><div><b>'+f(d.v[j])+'</b><span>'+(j?"Katta":"Standart")+(d.s[j]?' · '+d.s[j]:'')+'</span></div>';
       h+=q?'<div class="ctr"><button class="m" data-m="'+id+'">−</button><i>'+q+'</i><button data-p="'+id+'">+</button></div>'
-          :'<button class="add" data-p="'+id+'"'+(OPEN?'':' disabled')+'>Qo\'shish</button>';
+          :'<button class="add" data-p="'+id+'"'+(canAdd()&&!out?'':' disabled')+'>Qo\'shish</button>';
       h+='</div>'});
     h+='</div>'});
   $("menu").innerHTML=h; var c=cart();$("strip").style.display=c.c?"flex":"none";$("stx").textContent="🛒 "+c.c+" ta · "+f(c.s); bar();
@@ -154,7 +169,8 @@ function bar(){var c=cart();
     else{$("go").textContent=t2;$("bar").style.display="block"}
   }
 }
-$("menu").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||!OPEN)return;
+$("menu").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||!canAdd())return;
+  if(b.dataset.p&&STOP.indexOf(Math.floor(b.dataset.p/2))>=0)return;
   if(b.dataset.p){var id=b.dataset.p;Q[id]=(Q[id]||0)+1;if(Q[id]>30)Q[id]=30}
   else if(b.dataset.m){var m=b.dataset.m;Q[m]=(Q[m]||0)-1;if(Q[m]<=0)delete Q[m]}
   if(inTg&&tg.HapticFeedback)tg.HapticFeedback.selectionChanged();render()});
@@ -170,13 +186,14 @@ function drawCo(){var c=cart(),h="";
   if(T==="d")h+='<div class="row"><span>🚕 Yetkazish</span><span>keyin aytiladi</span></div>';
   h+='<button class="clr" id="clr2">🗑 Savatni tozalash</button>';
   $("sum").innerHTML=h;
-  [].forEach.call($("type").children,function(b){b.classList.toggle("on",b.dataset.v===T)});
+  var minOk=!MIN||c.s>=MIN;if(!minOk&&T==="d")T="";
+  [].forEach.call($("type").children,function(b){b.classList.toggle("on",b.dataset.v===T);if(b.dataset.v==="d")b.disabled=!minOk});
   [].forEach.call($("pay").children,function(b){b.classList.toggle("on",b.dataset.v===P);b.disabled=(T==="d"&&b.dataset.v==="n")});
-  $("tnote").textContent=T==="d"?"Yandex orqali yetkaziladi. Narxi masofaga qarab, buyurtmadan keyin sizga yozib yuboramiz.":T==="p"?"Tayyor bo'lganda botga xabar keladi. Manzil: Chilonzor 18-kv, Parlament ro'parasi.":"";
+  $("tnote").textContent=!minOk&&T!=="p"?"🚕 Yetkazib berish "+f(MIN)+" dan boshlab. Yana "+f(MIN-c.s)+" lik taom qo'shing yoki olib keting.":T==="d"?"Yandex orqali yetkaziladi. Narxi masofaga qarab, buyurtmadan keyin sizga yozib yuboramiz.":T==="p"?"Tayyor bo'lganda botga xabar keladi. Manzil: Chilonzor 18-kv, Parlament ro'parasi.":"";
   $("pnote").textContent=P==="k"?"Buyurtmadan keyin bot karta raqamini yuboradi. Pul o'tkazib, chek rasmini botga yuborasiz.":P==="n"?"Olib ketayotganda joyida to'laysiz.":"";
   $("adw").style.display=T==="d"?"block":"none";
   bar()}
-$("type").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;T=b.dataset.v;if(T==="d")P="k";drawCo()});
+$("type").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||b.disabled)return;T=b.dataset.v;if(T==="d")P="k";drawCo()});
 $("pay").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||b.disabled)return;P=b.dataset.v;drawCo()});
 $("back").onclick=showMenu;
 function step(b){if(b.dataset.p){var id=b.dataset.p;Q[id]=Math.min((Q[id]||0)+1,30)}else if(b.dataset.m){var m=b.dataset.m;Q[m]=(Q[m]||0)-1;if(Q[m]<=0)delete Q[m]}}
@@ -198,6 +215,7 @@ function fullAd(){var a=[$("ad").value.trim()];
   return r.slice(0,300)}
 function send(){var err=$("err"),ph=$("ph").value.replace(/[^\d+]/g,"");
   if(!OPEN){err.textContent="Hozir yopiqmiz (10:00–02:00).";return}
+  if(PAUZA){err.textContent="Hozir juda bandmiz, birozdan keyin qayta urinib ko'ring.";return}
   if(!T){err.textContent="Yetkazib berish yoki olib ketishni tanlang.";return}
   if(!P){err.textContent="To'lov usulini tanlang.";return}
   if(ph.replace(/\D/g,"").length<9){err.textContent="Telefon raqamingizni to'liq yozing.";$("ph").focus();return}
@@ -220,6 +238,7 @@ if(inTg){tg.ready();tg.expand();
 try{var sv=JSON.parse(localStorage.getItem("lf-mijoz")||"{}");if(sv.ph)$("ph").value=sv.ph;if(sv.ad)$("ad").value=sv.ad;["pd","qv","xn","dm","ml"].forEach(function(k){if(sv[k])$(k).value=sv[k]});if(sv.nm&&!$("nm").value)$("nm").value=sv.nm}catch(e){}
 var KS=["ph","ad","nm","pd","qv","xn","dm","ml"];KS.forEach(function(k){$(k).addEventListener("change",function(){var o={};KS.forEach(function(x){o[x]=$(x).value});try{localStorage.setItem("lf-mijoz",JSON.stringify(o))}catch(e){}})});
 render();
+loadHolat();
 </script>
 </body>
 </html>
