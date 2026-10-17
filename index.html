@@ -26,6 +26,7 @@ body{margin:0 auto;max-width:1100px;background:var(--bg);color:var(--fg);font-fa
 .tabs{display:flex;gap:6px;margin-top:10px}
 .tab{flex:1;padding:13px 6px;font-size:18px;font-weight:700;border:2px solid var(--ln);background:var(--card);color:var(--fg);border-radius:12px;font-family:inherit;cursor:pointer}
 .tab.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.sm.red{background:#b3261e;color:#fff;border-color:#b3261e}
 .ban{background:#f2c94c;color:#222;border-radius:12px;padding:12px;margin-top:8px;font-size:17px;font-weight:600}
 #grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-top:10px}
 .dish{background:var(--card);border:1px solid var(--ln);border-left:8px solid var(--btn);border-radius:14px;padding:8px}
@@ -115,20 +116,25 @@ details.box summary{padding:2px 0;font-size:19px;font-weight:700}
   <div class="row" id="vzr" hidden></div>
   <div class="row" id="fixrow" hidden><button class="sm" id="fix">Oldingi zakazni tuzatish</button></div>
   <div id="grid"></div>
-  <div class="box" id="gbox"><h2>Go'sht</h2>
-    <label class="sub" for="gop">Kechadan qolgan pishgan (kesilgan) go'sht, gramm</label>
-    <input id="gop" type="number" inputmode="numeric" placeholder="masalan 600">
-    <div id="gbinfo" style="margin-top:10px"></div>
-    <label class="sub" for="cg" style="display:block;margin-top:10px">Shampurdan kesib oldim (pishgan go'sht, gramm)</label>
-    <div class="f"><input id="cg" type="number" inputmode="numeric" placeholder="gramm"><button class="sm" id="cadd" style="flex:0 0 auto;min-width:120px">Kesdim</button></div>
-    <div id="cinfo"></div>
-    <div class="row"><button class="sm" id="cundo">Oxirgi kesilganni o'chirish</button></div>
-    <details style="margin-top:10px"><summary>Yangi xom go'sht ildim</summary>
-      <div class="sub">Shampurga yangi go'sht ilganda bosing. Eski go'sht shu bilan «tugadi» deb yopiladi va undan necha foiz chiqqani saqlanadi.</div>
-      <div class="f" style="margin-top:8px"><input id="raw" type="number" inputmode="numeric" placeholder="xom gramm, 8 kg = 8000"><button class="sm" id="gnew" style="flex:0 0 auto;min-width:120px">Ildim</button></div></details>
-    <label class="sub" for="gleft" style="display:block;margin-top:12px">Kechqurun: ertaga uchun qoldirgan pishgan go'sht (tortib yozing), gramm</label>
-    <input id="gleft" type="number" inputmode="numeric" placeholder="masalan 500">
-    <div id="gbal"></div></div>
+  <div class="box" id="gbox"><h2>Shampurdagi go'sht</h2>
+    <div id="gstate"></div>
+    <div id="gcutw">
+      <label class="sub" for="cg" style="display:block;margin-top:10px">Tortib yozing, gramm</label>
+      <input id="cg" type="number" inputmode="numeric" placeholder="gramm">
+      <div class="row"><button class="sm" id="cadd">Kesdim</button></div>
+      <div id="cinfo"></div>
+      <div class="row"><button class="sm" id="cundo">Oxirgisini o'chirish</button></div>
+      <button class="sm red" id="gend" style="width:100%;margin-top:10px">Bu go'sht TUGADI</button></div>
+    <div id="gneww">
+      <label class="sub" for="raw" style="display:block;margin-top:10px">Yangi xom go'sht ildim, gramm (8 kg = 8000)</label>
+      <div class="f"><input id="raw" type="number" inputmode="numeric" placeholder="8000"><button class="sm" id="gnew" style="flex:0 0 auto;min-width:120px">Ildim</button></div></div>
+    <div id="gown" hidden>
+      <h3 style="margin-top:16px">Pishgan go'sht qoldig'i (faqat siz ko'rasiz)</h3>
+      <label class="sub" for="gop">Kechadan qolgan pishgan go'sht, gramm</label>
+      <input id="gop" type="number" inputmode="numeric" placeholder="masalan 600">
+      <label class="sub" for="gleft" style="display:block;margin-top:10px">Ertaga uchun qoldirgan pishgan go'sht (tortib), gramm</label>
+      <input id="gleft" type="number" inputmode="numeric" placeholder="masalan 500">
+      <div id="gbal"></div></div></div>
   <div class="box expbox"><h2>Xarajat</h2>
     <div class="f"><input id="en" placeholder="Nima uchun"><input id="ea" type="number" inputmode="numeric" placeholder="So'm" style="width:38%"></div>
     <div class="row"><button class="sm" id="eadd">Xarajat</button><button class="sm" id="eaddm">Mahsulot xaridi</button></div>
@@ -317,9 +323,11 @@ function total(){return ordSum(S.log)-ordSum(S.ret)}
 function used(){var u={};sold().forEach(function(i){var r=ITEMS[i].r;for(var k in r)u[k]=(u[k]||0)+r[k]});return u}
 function cutTot(){return S.cut.reduce(function(a,b){return a+b},0)}
 /* Go'sht: shampurdagi partiya (bir necha kun davom etadi) va kunlik pishgan go'sht balansi */
-function gbCut(b){return (b&&b.cuts||[]).reduce(function(a,c){return a+c.g},0)}
+function gbCut(b){return (b&&b.cuts||[]).reduce(function(a,c){return c.k?a:a+c.g},0)}
+function gbBurn(b){return (b&&b.cuts||[]).reduce(function(a,c){return c.k?a+c.g:a},0)}
+function gbSplit(x){var raw=x.raw||0,c=x.cut||0,k=x.burn||0,e=Math.max(0,raw-c-k),p=function(v){return raw?Math.round(v/raw*100):0};return{c:c,k:k,e:e,pc:p(c),pk:p(k),pe:p(e)}}
 function gbToday(b){return (b&&b.cuts||[]).filter(function(c){return c.d===S.iso}).reduce(function(a,c){return a+c.g},0)}
-function gbDays(b){var m={},k=[];(b&&b.cuts||[]).forEach(function(c){if(!(c.d in m)){m[c.d]=0;k.push(c.d)}m[c.d]+=c.g});return k.map(function(d){return[d,m[d]]})}
+function gbDays(b){var m={},k=[];(b&&b.cuts||[]).forEach(function(c){if(c.k)return;if(!(c.d in m)){m[c.d]=0;k.push(c.d)}m[c.d]+=c.g});return k.map(function(d){return[d,m[d]]})}
 function meatBal(){var op=num(S.open.g),cut=cutTot(),sold=used().g||0,eat=eatUsed().g||0,loss=lossOf("g"),has=!(S.gLeft===undefined||S.gLeft===""),left=num(S.gLeft),exp=op+cut-sold-eat-loss;
   return{op:op,cut:cut,sold:sold,eat:eat,loss:loss,exp:exp,has:has,left:left,diff:has?exp-left:0}}
 function gbLow(x){var o=(S.gbh||[]).filter(function(y){return y!==x&&y.raw>0}).slice(0,6);if(o.length<2||!x.raw)return false;var a=o.reduce(function(s,y){return s+y.cut/y.raw},0)/o.length;return x.cut/x.raw<a-.07}
@@ -369,8 +377,8 @@ function model(){
   var mb=meatBal();
   M.push({t:"GO'SHT: BUGUNGI PISHGAN GO'SHT",rows:[["Kechadan qolgan pishgan",fmt(mb.op)+" g"],["+ Bugun kesilgan ("+S.cut.length+" marta)",fmt(mb.cut)+" g"],["− Sotilgan taomlarga (retsept)",fmt(mb.sold)+" g"],["− Ishchi ovqatiga",fmt(mb.eat)+" g"],["− Hisobdan chiqarilgan",fmt(mb.loss)+" g"],["= Qolishi kerak",fmt(mb.exp)+" g"],["Ertaga qoldirildi (tortildi)",mb.has?fmt(mb.left)+" g":"yozilmagan"],[mb.diff>0?"Yo'qolgan (yeyilgan / ortiqcha solingan)":"Farq",mb.has?fmt(mb.diff)+" g ≈ "+som(mb.diff*unit().g):"—"]],tot:1});
   if(S.gb){var bd=gbDays(S.gb).map(function(x){return[dmy(x[0])+" kesildi",fmt(x[1])+" g"]});var bc=gbCut(S.gb);
-    M.push({t:"GO'SHT: SHAMPURDAGI PARTIYA ("+dmy(S.gb.d)+" dan)",rows:[["Xom ilingan",fmt(S.gb.raw)+" g"]].concat(bd).concat([["Jami kesilgan",fmt(bc)+" g ("+(S.gb.raw?Math.round(bc/S.gb.raw*100):0)+"%)"]]),tot:1})}
-  if((S.gbh||[]).length)M.push({t:"GO'SHT: TUGAGAN PARTIYALAR (xomdan chiqqan %)",rows:S.gbh.slice(0,5).map(function(x){var p=x.raw?Math.round(x.cut/x.raw*100):0;return[dmy(x.d)+"–"+dmy(x.e)+": "+fmt(x.raw)+" g xom",fmt(x.cut)+" g ("+p+"%)"+(gbLow(x)?" ⚠ kam":"")]})});
+    M.push({t:"GO'SHT: HOZIR SHAMPURDA ("+dmy(S.gb.d)+" da ilingan)",rows:(S.gb.raw?[["Xom ilingan",fmt(S.gb.raw)+" g"]]:[]).concat(bd).concat([["Jami kesilgan",fmt(bc)+" g"]]),tot:1})}
+  (S.gbh||[]).filter(function(x){return x.e===S.iso}).forEach(function(x){var q=gbSplit(x);M.push({t:"GO'SHT TUGADI: "+dmy(x.d)+"–"+dmy(x.e)+(x.raw?", "+fmt(x.raw)+" g xom":" (kechadan qolgan)"),rows:x.days.map(function(y){return[dmy(y[0])+" kesildi",fmt(y[1])+" g"]}).concat(x.raw?[["Pishgan go'sht chiqdi",fmt(q.c)+" g ("+q.pc+"%)"],["Bug'lanib, yog' bo'lib ketgan",fmt(q.e)+" g ("+q.pe+"%)"]]:[["Jami kesildi",fmt(q.c)+" g"]]),tot:1})});
   rows=ING.map(function(g){var k=g.k;return[g.n,fd(num(S.open[k])),fd(incOf(k)),fd(outOf(k)),fd(expected(k))]});
   M.push({t:"MAHSULOT",head:["Mahsulot","Boshida","Kelgan","Ketgan","Qoldiq"],rows:rows});
   rows=S.orders.map(function(o,i){return[(i+1)+") "+hms(o.st)+(hms(o.t)!==hms(o.st)?"–"+hms(o.t):"")+" | "+ordLine(o.s,o.r)+(o.p?" ["+payTag(o)+"]":""),som(ordSum(o.s)-ordSum(o.r))]});
@@ -426,17 +434,20 @@ function renderGsum(){var u=used().g||0,y=effYield();$("gsum").innerHTML="<div s
 function renderStock(){renderGsum();renderCash();renderFix();renderPr();renderLoss();
   $("st").innerHTML=ING.map(function(g){var e=expected(g.k);return"<tr><td>"+g.n+"</td>"+inp("open",g.k)+(g.k==="g"?"<td>"+fmt(cutTot())+"</td>":inp("inc",g.k))+"<td>"+fd(outOf(g.k))+'</td><td class="'+(e<0?"neg":"")+'"><b>'+fd(e)+"</b></td></tr>"}).join("");
   $("brk").innerHTML=asHTML(model().filter(function(x){return x.t.indexOf("taomlarga")>0}));renderMeat()}
-function renderMeat(){var g1=$("gop"),g2=$("gleft");if(document.activeElement!==g1)g1.value=S.open.g===undefined?"":S.open.g;if(document.activeElement!==g2)g2.value=S.gLeft===undefined?"":S.gLeft;
-  var b=S.gb,bi="";
-  if(b){var bc=gbCut(b);bi='<div class="x"><span>Shampurda: '+fmt(b.raw)+' g xom ('+dmy(b.d)+' da ilingan)</span></div>'+gbDays(b).map(function(x){return'<div class="x" style="font-size:16px"><span>'+(x[0]===S.iso?"Bugun":dmy(x[0]))+' kesildi</span><b>'+fmt(x[1])+' g</b></div>'}).join("")+'<div class="x"><span>Shu go\'shtdan jami kesildi</span><b>'+fmt(bc)+' g'+(OWNER&&b.raw?" ("+Math.round(bc/b.raw*100)+"%)":"")+'</b></div>'}
-  else bi='<div class="sub">Shampurdagi go\'sht yozilmagan. Yangi go\'sht ilganda pastdagi «Yangi xom go\'sht ildim» ni oching.</div>';
-  $("gbinfo").innerHTML=bi;
-  $("cinfo").innerHTML=S.cut.length?'<div class="sub">Bugun: '+S.cut.join(" + ")+" = <b>"+fmt(cutTot())+" g</b></div>":"";
+function renderMeat(){var g1=$("gop"),g2=$("gleft"),b=S.gb;$("gown").hidden=!OWNER;
+  if(document.activeElement!==g1)g1.value=S.open.g===undefined?"":S.open.g;if(document.activeElement!==g2)g2.value=S.gLeft===undefined?"":S.gLeft;
+  var o0=(S.gbh||[])[0],ended=!b&&o0&&o0.e===S.iso;
+  $("gcutw").hidden=ended;$("gneww").hidden=!!b;$("gend").hidden=!b;
+  if(!b&&!ended){$("gstate").innerHTML='<div class="sub">Shampurda kechadan qolgan go\'sht bo\'lsa, kesib yozing, tugagach «TUGADI» ni bosing. Shampur bo\'sh bo\'lsa, pastda yangi go\'shtni yozing.</div>';$("cinfo").innerHTML=""}
+  else if(b){var tc=b.cuts.filter(function(c){return c.d===S.iso});
+    $("gstate").innerHTML='<div class="x"><span>'+(b.raw?dmy(b.d)+' da ilingan: <b>'+fmt(b.raw)+' g</b> xom':'<b>Kechadan qolgan go\'sht</b>')+'</span></div>'+gbDays(b).map(function(x){return'<div class="x" style="font-size:16px"><span>'+(x[0]===S.iso?"Bugun":dmy(x[0]))+' kesildi</span><b>'+fmt(x[1])+' g</b></div>'}).join("")+(gbBurn(b)?'<div class="x" style="font-size:16px"><span>Kuygan, tashlangan</span><b>'+fmt(gbBurn(b))+' g</b></div>':"");
+    $("cinfo").innerHTML=tc.length?'<div class="sub">Bugun: '+tc.map(function(c){return c.k?"🔥"+c.g:c.g}).join(" + ")+'</div>':""}
+  else{var o=o0;$("gstate").innerHTML=ended?'<div class="sub">🔒 '+dmy(o.d)+' dagi go\'sht TUGADI: '+fmt(o.cut)+' g kesildi. Endi yangi go\'shtni ilib, pastga yozing.</div>':'<div class="sub">Shampurda yozilgan go\'sht yo\'q. Go\'sht ilganda pastga yozing.</div>';$("cinfo").innerHTML=""}
   var m=meatBal(),h="";
   if(OWNER){h='<div class="x"><span>Kechadan qolgan + bugun kesilgan</span><b>'+fmt(m.op+m.cut)+' g</b></div><div class="x"><span>− Sotilgan taomlarga (retsept)</span><b>'+fmt(m.sold)+' g</b></div>'+(m.eat?'<div class="x"><span>− Ishchi ovqatiga</span><b>'+fmt(m.eat)+' g</b></div>':"")+(m.loss?'<div class="x"><span>− Hisobdan chiqarilgan</span><b>'+fmt(m.loss)+' g</b></div>':"")+'<div class="x"><span>= Qolishi kerak</span><b>'+fmt(m.exp)+' g</b></div>';
     if(m.has)h+='<div class="x" style="font-weight:800"><span>'+(m.diff>0?"Yo'qolgan (yeyilgan / ortiqcha solingan)":"Ortiqcha qolgan")+'</span><b class="'+(m.diff>150?"neg":"")+'">'+fmt(Math.abs(m.diff))+' g ≈ '+som(Math.abs(m.diff)*unit().g)+'</b></div>'}
   $("gbal").innerHTML=h;
-  if($("gbhist")){var L=(S.gbh||[]);$("gbhist").innerHTML=(b?'<div class="x"><span>Hozir: '+dmy(b.d)+' dan, '+fmt(b.raw)+' g xom</span><b>'+fmt(gbCut(b))+' g kesildi</b></div>':"")+(L.length?L.slice(0,10).map(function(x){var p=x.raw?Math.round(x.cut/x.raw*100):0;return'<div class="x" style="font-size:16px"><span>'+dmy(x.d)+'–'+dmy(x.e)+': '+fmt(x.raw)+' g xom'+(x.days?'<br><span class="sub">'+x.days.map(function(y){return dmy(y[0])+": "+fmt(y[1])+" g"}).join(", ")+'</span>':"")+'</span><b class="'+(gbLow(x)?"neg":"")+'">'+fmt(x.cut)+' g ('+p+'%)</b></div>'}).join("")+'<div class="sub">Foiz = xom go\'shtdan necha foiz pishgan go\'sht chiqdi. Odatda bir xil bo\'ladi; birdan kamaysa, go\'sht kuygan yoki yeyilgan.</div>':'<div class="sub">Hali tugagan partiya yo\'q.</div>')}}
+  if($("gbhist")){var L2=(S.gbh||[]);$("gbhist").innerHTML=(b?'<div class="x"><span>Hozir shampurda: '+dmy(b.d)+' dan'+(b.raw?', '+fmt(b.raw)+' g xom':'')+'</span><b>'+fmt(gbCut(b))+' g kesildi</b></div>':"")+(L2.length?L2.slice(0,10).map(function(x){var q=gbSplit(x);return'<div style="padding:8px 0;border-bottom:1px solid var(--ln)"><div class="x" style="border:0;padding:0"><b>'+dmy(x.d)+'–'+dmy(x.e)+': '+(x.raw?fmt(x.raw)+' g xom':'xom og\'irligi yozilmagan')+'</b></div><div class="x" style="border:0;padding:2px 0;font-size:16px"><span>Pishgan go\'sht chiqdi</span><b class="'+(gbLow(x)?"neg":"")+'">'+fmt(q.c)+' g'+(x.raw?' ('+q.pc+'%)':'')+'</b></div>'+(q.k?'<div class="x" style="border:0;padding:2px 0;font-size:16px"><span>Kuygan</span><b>'+fmt(q.k)+' g ('+q.pk+'%)</b></div>':"")+''+(x.raw?'<div class="x" style="border:0;padding:2px 0;font-size:16px"><span>Bug\'lanib, yog\' bo\'lib ketgan</span><b>'+fmt(q.e)+' g ('+q.pe+'%)</b></div>':"")+''+(x.days?'<div class="sub">'+x.days.map(function(y){return dmy(y[0])+": "+fmt(y[1])+" g"}).join(", ")+'</div>':"")+'</div>'}).join("")+'<div class="sub">Bug\'lanish = xom − pishgan. Unga yozilmay kesilgan yoki yeyilgan go\'sht ham kirib ketadi, shuning uchun birdan oshib ketsa, tekshiring.</div>':'<div class="sub">Hali tugagan go\'sht yo\'q.</div>')}}
 function ordShort(o){return hms(o.t).slice(0,5)+" · "+ordLine(o.s,o.r)+" = "+som(ordSum(o.s)-ordSum(o.r))+(o.p?" ("+payTag(o)+")":"")}
 function renderOrders(){var l=S.orders.slice().reverse();
   $("lastord").innerHTML=l.slice(0,2).map(function(o){return"<div>"+esc(ordShort(o))+"</div>"}).join("");
@@ -475,11 +486,13 @@ $("cashL").addEventListener("change",function(){S.cash.left=this.value;save();re
 $("cashA").addEventListener("change",function(){S.cash.act=this.value;save();renderCash()});
 $("gop").addEventListener("change",function(){S.open.g=this.value;save();afterMeat()});
 $("gleft").addEventListener("change",function(){S.gLeft=this.value;save();afterMeat()});
-$("gnew").onclick=function(){var a=$("raw"),v=parseFloat(a.value);if(!v||v<=0){a.focus();return}var bt=this;arm(bt,"Eski go'sht tugadimi? Ha: yana bosing",function(){
-  if(S.gb){S.gbh=S.gbh||[];S.gbh.unshift({d:S.gb.d,e:S.iso,raw:S.gb.raw,cut:gbCut(S.gb),days:gbDays(S.gb)});S.gbh=S.gbh.slice(0,60)}
-  S.gb={d:S.iso,raw:v,cuts:[]};S.raw=num(S.raw)+v;a.value="";save();afterMeat()})};
-$("cadd").onclick=function(){var a=$("cg"),v=parseFloat(a.value);if(!v||v<=0)return;S.cut.push(v);if(S.gb)S.gb.cuts.push({d:S.iso,g:v,t:Date.now()});a.value="";save();afterMeat()};
-$("cundo").onclick=function(){if(S.cut.length){S.cut.pop();if(S.gb){for(var q=S.gb.cuts.length-1;q>=0;q--){if(S.gb.cuts[q].d===S.iso){S.gb.cuts.splice(q,1);break}}}save();afterMeat()}};
+$("gop").addEventListener("change",function(){S.open.g=this.value;save();afterMeat()});
+$("gleft").addEventListener("change",function(){S.gLeft=this.value;save();afterMeat()});
+$("gnew").onclick=function(){var a=$("raw"),v=parseFloat(a.value);if(!v||v<=0){a.focus();return}S.gb={d:S.iso,raw:v,cuts:[]};S.raw=num(S.raw)+v;a.value="";save();afterMeat()};
+$("gend").onclick=function(){if(!S.gb)return;arm(this,"Hammasi kesib bo'lindimi? Ha: yana bosing",function(){S.gbh=S.gbh||[];S.gbh.unshift({d:S.gb.d,e:S.iso,raw:S.gb.raw,cut:gbCut(S.gb),burn:gbBurn(S.gb),days:gbDays(S.gb)});S.gbh=S.gbh.slice(0,60);S.gb=null;save();afterMeat()})};
+function addCut(k){var a=$("cg"),v=parseFloat(a.value);if(!v||v<=0){a.focus();return}if(!S.gb)S.gb={d:S.iso,raw:0,cuts:[]};if(!k)S.cut.push(v);S.gb.cuts.push({d:S.iso,g:v,t:Date.now(),k:k?1:0});a.value="";save();afterMeat();if(navigator.vibrate)try{navigator.vibrate(30)}catch(x){}}
+$("cadd").onclick=function(){addCut(0)};
+$("cundo").onclick=function(){if(!S.gb)return;for(var q=S.gb.cuts.length-1;q>=0;q--){if(S.gb.cuts[q].d===S.iso){var c=S.gb.cuts.splice(q,1)[0];if(!c.k){var z=S.cut.lastIndexOf(c.g);if(z>=0)S.cut.splice(z,1)}save();afterMeat();return}}};
 function doCopy(t,b){var bad="Olinmadi: matnni bosib ushlab belgilang";function ok(){b.textContent="Nusxa olindi"}
   function fb(){try{var a=document.createElement("textarea");a.value=t;a.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.appendChild(a);a.focus();a.select();var r=document.execCommand("copy");document.body.removeChild(a);if(r)ok();else b.textContent=bad}catch(e){b.textContent=bad}}
   try{navigator.clipboard.writeText(t).then(ok,fb)}catch(e){fb()}}
@@ -489,10 +502,10 @@ function arm(b,label,fn){
   b._t=setTimeout(function(){b._t=null;b.textContent=b._o;b.style.background="";b.style.color=""},6000)}
 function closeDay(){
   var o={};ING.forEach(function(g){o[g.k]=0});
-  if(S.gLeft!==undefined&&S.gLeft!=="")o.g=num(S.gLeft);
+  var gl=S.gLeft!==undefined&&S.gLeft!=="";if(gl)o.g=num(S.gLeft);
   var h=S.hist,e={iso:S.iso,day:S.day,total:total(),count:S.log.length-S.ret.length,text:asText(model()),at:Date.now(),raw:num(S.raw),cutg:cutTot(),st:dayStats()};h.unshift(e);h=h.slice(0,1000);if(DB)DB.collection("days").doc("d"+e.at).set(e).catch(function(){});
   var note="Kun yopildi. Mahsulot nolga tushirildi: «Mahsulot» bo'limida Boshida katagiga qolgan mahsulotni yozing. Kechadan qolgan pishgan go'sht va shampurdagi go'sht o'zi o'tdi.";
-  var pngP=asPNG(model()),keep={pinh:S.pinh,fix:S.fix,pr:S.pr,gb:S.gb,gbh:S.gbh};S=blank(o);S.hist=h;S.note=note;S.pinh=keep.pinh;S.fix=keep.fix;S.pr=keep.pr;S.gb=keep.gb;S.gbh=keep.gbh;save();setTab("r");renderSales();
+  var pngP=asPNG(model()),keep={pinh:S.pinh,fix:S.fix,pr:S.pr,gb:S.gb,gbh:S.gbh};S=blank(o);S.hist=h;S.note=note;S.pinh=keep.pinh;S.fix=keep.fix;S.pr=keep.pr;S.gb=keep.gb;S.gbh=keep.gbh;S.gopLock=gl?1:0;save();setTab("r");renderSales();
   pngP.then(function(bl){PNGB=bl;var fr=new FileReader();fr.onload=function(){$("imgout").innerHTML='<div class="sub">Yopilgan kunning hisoboti: rasmni saqlab, Telegram guruhingizga yuboring.</div><img alt="Hisobot" src="'+fr.result+'" style="width:100%;margin-top:10px;border:1px solid var(--ln);border-radius:8px"><div class="row"><button class="sm" id="imgsend">Telegramga yuborish</button><button class="sm" id="imgsave">Rasmni saqlash</button></div>';$("imgsave").onclick=saveImg;$("imgsend").onclick=shareImg};fr.readAsDataURL(bl)})}
 $("new").onclick=function(){var neg=ING.filter(function(g){return expected(g.k)<0}).map(function(g){return g.n+" ("+fd(expected(g.k))+")"});
   arm(this,(neg.length?"Manfiy qoldiq: "+neg.join(", ")+" (kirim yozilmagan). ":"")+"Ha, kunni yopish: yana bir marta bosing",closeDay)};
