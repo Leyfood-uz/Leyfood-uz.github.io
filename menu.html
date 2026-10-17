@@ -22,7 +22,7 @@ main{padding:12px 12px 0;max-width:560px;margin:0 auto}
 .ic{width:44px;height:44px;border-radius:12px;background:rgba(214,40,40,.1);display:grid;place-items:center;font-size:24px;flex:none}
 .nm{font-weight:800;font-size:17px}
 .hit{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
-.ds{color:var(--mut);font-size:12.5px}
+.ds{color:var(--mut);font-size:12.5px;margin-top:2px;line-height:1.3}
 .sz{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px dashed var(--ln)}
 .sz b{font-size:15px}.sz span{color:var(--mut);font-size:13px;margin-left:6px}
 .ctr{display:flex;align-items:center;gap:8px}
@@ -60,9 +60,9 @@ textarea{min-height:60px;resize:vertical}
 </style>
 </head>
 <body>
-<header><h1>LEY FOOD</h1><p>📍 Chilonzor 18-kvartal, Parlament ro'parasi · 🕙 10:00–02:00</p><a class="tel" href="tel:+998907309996">📞 +998 90 730 99 96</a></header>
+<header><h1>LEY FOOD</h1><p>📍 Chilonzor 18-kvartal, Parlament ro'parasi · 🕙 10:00–02:00</p><a class="tel" id="tel" href="tel:+998907309996">📞 +998 90 730 99 96</a></header>
 <div class="pz" id="pz"></div>
-<div class="closed" id="closed">Hozir yopiqmiz. Buyurtmalar 10:00 dan 02:00 gacha qabul qilinadi.</div>
+<div class="closed" id="closed">🔒 Hozir yopiqmiz. Ochilganimizda buyurtma berishingiz mumkin.</div>
 
 <main id="mw"><div class="strip" id="strip"><span id="stx"></span><button id="clr1">🗑 Savatni tozalash</button></div><div id="menu"></div></main>
 
@@ -114,20 +114,19 @@ textarea{min-height:60px;resize:vertical}
 <script>
 /* Taomlar tartibi Ley Food ilovasidagi bilan bir xil (indeks 0-15). Narxni o'zgartirsangiz, botdagi NARX ro'yxatini ham o'zgartiring. */
 var D=[
- {n:"Lavash",e:"🌯",s:["",""],v:[28000,38000]},
- {n:"Donar",e:"🥙",s:["",""],v:[28000,38000]},
- {n:"Non-kabob",e:"🥖",s:["",""],v:[28000,38000]},
- {n:"Haggi",e:"🍔",s:["",""],v:[28000,38000]},
- {n:"Non dog",e:"🌭",s:["2 ta sosiska","3 ta sosiska"],v:[23000,28000]},
- {n:"Non mix",e:"🥪",s:["2 sosiska + go'sht","2 sosiska + go'sht"],v:[28000,33000]},
- {n:"Qazili hot-dog",e:"🌭",s:["1 sosiska + qazi","2 sosiska + qazi"],v:[23000,33000]},
- {n:"Hot-dog",e:"🌭",s:["1 ta sosiska","2 ta sosiska"],v:[13000,18000]}];
+ {n:"Lavash",t:"Go'sht, chips, salat bargi, pomidor, mayonez, tomat sousi",e:"🌯",s:["",""],v:[28000,38000]},
+ {n:"Donar",t:"Go'sht, salat bargi, pomidor, mayonez, tomat sousi",e:"🥙",s:["",""],v:[28000,38000]},
+ {n:"Non-kabob",t:"Go'sht, piyoz, tomat sousi, xohishga ko'ra achchiq",e:"🥖",s:["",""],v:[28000,38000]},
+ {n:"Haggi",t:"Go'sht, chips, salat bargi, pomidor, mayonez, tomat sousi",e:"🍔",s:["",""],v:[28000,38000]},
+ {n:"Non dog",t:"Sosiska, funchoza, markovcha, salat bargi, pomidor, pishloqli sous, mayonez, ketchup",e:"🌭",s:["2 ta sosiska","3 ta sosiska"],v:[23000,28000]},
+ {n:"Non mix",t:"Sosiska, go'sht, funchoza, markovcha, salat bargi, pomidor, pishloqli sous, mayonez, ketchup",e:"🥪",s:["2 sosiska + go'sht","2 sosiska + go'sht"],v:[28000,33000]},
+ {n:"Qazili hot-dog",t:"Sosiska, qazi, indeyka, press go'sht, pishloqli sous, ketchup, mayonez",e:"🌭",s:["1 sosiska + qazi","2 sosiska + qazi"],v:[23000,33000]},
+ {n:"Hot-dog",t:"Sosiska, funchoza, markovcha, pishloqli sous, ketchup, mayonez",e:"🌭",s:["1 ta sosiska","2 ta sosiska"],v:[13000,18000]}];
 var ORDER=[7,2,0,1,3,4,5,6], HIT={7:1,2:1};
 var Q={}, T="", P="", tg=window.Telegram&&Telegram.WebApp, inTg=!!(tg&&tg.initData!==undefined&&tg.platform&&tg.platform!=="unknown");
 var $=function(i){return document.getElementById(i)};
 function f(n){return n.toLocaleString("ru-RU")+" so'm"}
-function isOpen(){var d=new Date(),h=(d.getUTCHours()+5)%24;return h>=10||h<2}
-var OPEN=isOpen(), STOP=[], PAUZA=false, MIN=0;
+var OPEN=true, STOP=[], PAUZA=false, MIN=0;
 function canAdd(){return OPEN&&!PAUZA}
 function loadHolat(){
   var api=null;try{api=new URLSearchParams(location.search).get("api")}catch(e){}
@@ -135,17 +134,18 @@ function loadHolat(){
   fetch(api+(api.indexOf("?")<0?"?":"&")+"holat=1",{cache:"no-store"}).then(function(r){return r.json()}).then(function(h){
     STOP=h.stop||[];PAUZA=!!h.pauza;MIN=+h.min||0;
     for(var id in Q){if(STOP.indexOf(Math.floor(id/2))>=0)delete Q[id]}
-    var pz=$("pz");if(PAUZA){pz.textContent="⏸ Hozir juda bandmiz, buyurtma vaqtincha qabul qilinmayapti"+(h.gacha?" ("+new Date(h.gacha).toLocaleTimeString("uz-UZ",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Tashkent"})+" gacha)":"")+". Birozdan keyin qayta oching 🙏";pz.style.display="block"}else pz.style.display="none";
+    if(PAUZA&&!h.gacha){OPEN=false;$("closed").style.display="block";$("pz").style.display="none"}
+    else{OPEN=true;$("closed").style.display="none"}
+    var pz=$("pz");if(PAUZA&&h.gacha){pz.textContent="⏸ Hozir juda bandmiz, buyurtma vaqtincha qabul qilinmayapti"+(h.gacha?" ("+new Date(h.gacha).toLocaleTimeString("uz-UZ",{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Tashkent"})+" gacha)":"")+". Birozdan keyin qayta oching 🙏";pz.style.display="block"}else pz.style.display="none";
     if(view==="menu")render();else drawCo();
   }).catch(function(){});
 }
-if(!OPEN)$("closed").style.display="block";
 
 function render(){
   var h="";
   ORDER.filter(function(k){return STOP.indexOf(k)<0}).concat(ORDER.filter(function(k){return STOP.indexOf(k)>=0})).forEach(function(k){var d=D[k];
     var out=STOP.indexOf(k)>=0;
-    h+='<div class="item'+(out?' out':'')+'"><div class="top"><div class="ic">'+d.e+'</div><div><div class="nm">'+d.n+(HIT[k]?'<span class="hit">Xit</span>':'')+'</div></div></div>';
+    h+='<div class="item'+(out?' out':'')+'"><div class="top"><div class="ic">'+d.e+'</div><div><div class="nm">'+d.n+(HIT[k]?'<span class="hit">Xit</span>':'')+'</div>'+(d.t?'<div class="ds">'+d.t+'</div>':'')+'</div></div>';
     [0,1].forEach(function(j){var id=k*2+j,q=Q[id]||0;
       h+='<div class="sz"><div><b>'+f(d.v[j])+'</b><span>'+(j?"Katta":"Standart")+(d.s[j]?' · '+d.s[j]:'')+'</span></div>';
       h+=q?'<div class="ctr"><button class="m" data-m="'+id+'">−</button><i>'+q+'</i><button data-p="'+id+'">+</button></div>'
@@ -214,7 +214,7 @@ function fullAd(){var a=[$("ad").value.trim()];
   if($("esh").checked)r+="\n🚪 ESHIKKACHA OLIB CHIQILSIN";
   return r.slice(0,300)}
 function send(){var err=$("err"),ph=$("ph").value.replace(/[^\d+]/g,"");
-  if(!OPEN){err.textContent="Hozir yopiqmiz (10:00–02:00).";return}
+  if(!OPEN){err.textContent="Hozir yopiqmiz.";return}
   if(PAUZA){err.textContent="Hozir juda bandmiz, birozdan keyin qayta urinib ko'ring.";return}
   if(!T){err.textContent="Yetkazib berish yoki olib ketishni tanlang.";return}
   if(!P){err.textContent="To'lov usulini tanlang.";return}
@@ -239,6 +239,19 @@ try{var sv=JSON.parse(localStorage.getItem("lf-mijoz")||"{}");if(sv.ph)$("ph").v
 var KS=["ph","ad","nm","pd","qv","xn","dm","ml"];KS.forEach(function(k){$(k).addEventListener("change",function(){var o={};KS.forEach(function(x){o[x]=$(x).value});try{localStorage.setItem("lf-mijoz",JSON.stringify(o))}catch(e){}})});
 render();
 loadHolat();
+/* Telefon: Telegram ichida tel: havolasi ishlamasligi mumkin, shuning uchun o'z oynasini chiqaramiz */
+(function(){var NUM="+998907309996";
+  function eski(){var t=document.createElement("textarea");t.value=NUM;document.body.appendChild(t);t.select();try{document.execCommand("copy")}catch(x){}t.remove()}
+  function nusxa(){try{navigator.clipboard.writeText(NUM).catch(eski)}catch(e){eski()}}
+  $("tel").addEventListener("click",function(e){
+    if(!inTg||!tg.showPopup)return;
+    e.preventDefault();
+    tg.showPopup({title:"LEY FOOD",message:"📞 +998 90 730 99 96",buttons:[{id:"call",type:"default",text:"📞 Qo'ng'iroq qilish"},{id:"copy",type:"default",text:"📋 Raqamni nusxalash"},{type:"cancel"}]},function(id){
+      if(id==="call"){location.href="tel:"+NUM;setTimeout(nusxa,300)}
+      else if(id==="copy"){nusxa();try{tg.showAlert("✅ Raqam nusxalandi: +998 90 730 99 96")}catch(x){}}
+    });
+  });
+})();
 </script>
 </body>
 </html>
