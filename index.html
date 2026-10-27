@@ -131,8 +131,8 @@ details.box summary{list-style:none}
 </div>
 <div id="dvm" hidden><div class="in" id="dvin"></div></div>
 <div class="box" id="loginbox" hidden><h2>Bazaga kirish (bir marta)</h2>
-  <div class="sub">Shu qurilmani bazaga ulash uchun akkaunt paroli. Bir marta kirsangiz, keyin o'zi eslab qoladi.</div>
-  <input id="lem" type="email" autocomplete="username" value="leyfood.savdo@gmail.com" style="margin-top:8px">
+  <div class="sub">O'zingizga berilgan Gmail va parolni yozing. Bir marta kirsangiz, keyin o'zi eslab qoladi.</div>
+  <input id="lem" type="email" autocomplete="username" placeholder="Gmail" style="margin-top:8px">
   <input id="lpw" type="password" autocomplete="current-password" placeholder="Parol" style="margin-top:8px">
   <button class="sm" id="lgo" style="margin-top:8px;width:100%">Kirish</button><div class="sub" id="lerr"></div></div>
 <div class="box" id="pinbox" hidden><div class="sub" id="pinlab"></div>
@@ -216,6 +216,17 @@ details.box summary{list-style:none}
   <div class="box"><h2>Doimiy xarajatlar</h2><div id="fixbox"></div><div class="sub">Svet va gaz oyiga, qolganlari kuniga yoziladi (oyiga 30 kun hisoblanadi). Sof foyda hisobotda chiqadi.</div></div>
   <div class="box"><h2>Go'sht partiyalari</h2><div id="gbhist"></div></div>
   <details class="box"><summary>Nima necha ketdi</summary><div id="brk"></div></details>
+  <div class="box" id="accbox" hidden><h2>Kimlar kira oladi</h2>
+    <div class="sub" id="accme"></div>
+    <div id="acclist"></div>
+    <div class="f" style="margin-top:8px"><input id="accem" type="email" placeholder="ishchi@gmail.com"><button class="sm" id="accadd" style="flex:0 0 auto;min-width:110px">Qo'shish</button></div>
+    <div class="sub">Ishchi uchun avval Firebase'da akkaunt oching (Authentication → Add user), keyin Gmailini shu yerga qo'shing. Ishdan ketsa, × ni bosing: telefonidagi ilova darrov bazadan chiqadi va ma'lumot o'chadi.</div>
+    <h3>Parolni almashtirish va hamma telefonlarni chiqarish</h3>
+    <div class="sub">Sizning akkauntingiz bilan kirgan boshqa telefonlar chiqadi. Faqat shu telefon qoladi. Yangi parolni yozsangiz, parol ham almashadi (kamida 6 belgi). Yangi parolni yozib qo'ying, unutmang!</div>
+    <input id="kickpw" type="password" autocomplete="current-password" placeholder="Hozirgi parol" style="margin-top:8px">
+    <input id="newpw" type="text" autocomplete="new-password" placeholder="Yangi parol (ixtiyoriy)" style="margin-top:8px">
+    <button class="sm red" id="acckick" style="width:100%;margin-top:8px">Hammasini chiqarish</button>
+    <div class="sub" id="accinfo"></div></div>
   <div class="box"><h2>Boshqa</h2>
     <div class="row"><button class="sm" id="pinreset">PINni o'zgartirish</button></div>
     <div class="row"><button class="sm" id="imp">Eski ma'lumotni yuklash</button><button class="sm" id="logout">Bazadan chiqish</button></div>
@@ -321,7 +332,7 @@ function watch(n){DOCS[n].onSnapshot({includeMetadataChanges:true},function(d){
   if(r.data===LAST[n]||r.data===JSON.stringify(parts()[n])){LAST[n]=r.data;if(!d.metadata.hasPendingWrites)LASTOK[n]=r.data}
   else if(r.ts>(S[edK(n)]||0)){try{adopt(n,r)}catch(e){}}
   if(fresh&&!READY[n]){READY[n]=1;push(n)}
-  setSync(fresh?"ok":"")},function(){setSync("err")})}
+  setSync(fresh?"ok":"")},function(e){if(e&&e.code==="permission-denied")kickOut();else setSync("err")})}
 function ready(){return !DOCS||(READY.sales&&READY.stock)}
 function selecting(){return !!document.querySelector("#hist .sel:checked,#hres .sel:checked")}
 function hist(){return DB?REM:S.hist}
@@ -332,7 +343,7 @@ function connect(){if(!window.firebase){setSync("off");return}
     try{FS.enablePersistence({synchronizeTabs:true}).catch(function(){})}catch(e){}}catch(e){setSync("err");return}
   AUTH.onAuthStateChanged(function(u){
     if(!u){$("loginbox").hidden=false;setSync("off");return}
-    $("loginbox").hidden=true;if(DB)return;
+    $("loginbox").hidden=true;accWatch(u);if(DB)return;
     DB=FS;DOCS={sales:FS.doc("stall/sales"),stock:FS.doc("stall/stock")};watch("sales");watch("stock");dvWatch();
     FS.collection("days").onSnapshot(function(q){REM=q.docs.map(function(x){var o=x.data();o._id=x.id;return o}).sort(function(a,b){return(b.at||0)-(a.at||0)});if(tab==="r"&&!selecting())renderReport();if(tab==="a")renderAn()},function(){});
     FS.collection("personal").onSnapshot(function(q){PERS=q.docs.map(function(x){var o=x.data();o._id=x.id;return o}).sort(function(a,b){return(b.at||0)-(a.at||0)});if(tab==="a")renderAn()},function(){});
@@ -341,6 +352,37 @@ $("lgo").onclick=function(){var b=this,er=$("lerr");if(!AUTH){er.textContent="In
   er.textContent="Tekshirilmoqda...";b.disabled=true;
   AUTH.signInWithEmailAndPassword($("lem").value.trim(),$("lpw").value).then(function(){er.textContent="";$("lpw").value="";b.disabled=false},function(e){b.disabled=false;
     var c=e&&e.code||"";er.textContent=c.indexOf("network")>=0?"Internet yo'q. Internetni yoqib, qayta bosing.":c.indexOf("too-many")>=0?"Ko'p urinish bo'ldi, birozdan keyin qayta urinib ko'ring.":"Email yoki parol noto'g'ri."})};
+/* ===== Kirish ruxsati: kimlar bazaga kira oladi ===== */
+var OWNEM="leyfood.savdo@gmail.com",ACC={users:[],kick:0},MYAT=0,MYEM="",ACCW=null,KICKED=false;
+function em(){return MYEM}
+function isBoss(){return MYEM===OWNEM}
+function kickOut(msg){if(KICKED)return;KICKED=true;try{localStorage.removeItem(KEY);localStorage.removeItem("savdo-role")}catch(e){}
+  var go=function(){location.reload()};try{sessionStorage.setItem("kickmsg",msg||"Sizga bazaga kirish ruxsati yo'q.")}catch(e){}
+  if(AUTH)AUTH.signOut().then(go,go);else go()}
+function accOk(){if(MYAT&&ACC.kick&&MYAT<=ACC.kick)return false;return isBoss()||(ACC.users||[]).indexOf(MYEM)>=0}
+function accWatch(u){MYEM=(u.email||"").toLowerCase();if(ACCW)return;
+  u.getIdTokenResult().then(function(r){MYAT=+(r.claims.auth_time||0);accCheck()},function(){});
+  ACCW=FS.doc("config/access").onSnapshot(function(d){
+    if(!d.exists){ACC={users:[],kick:0};if(isBoss())FS.doc("config/access").set({users:[],kick:0}).catch(function(){});}
+    else{var x=d.data();ACC={users:(x.users||[]).map(function(e){return String(e).toLowerCase()}),kick:+(x.kick||0)}}
+    accCheck();renderAcc()},function(e){if(e&&e.code==="permission-denied")kickOut()})}
+function accCheck(){if(!MYEM||!MYAT)return;if(!accOk())kickOut(isBoss()?"Hamma telefonlar chiqarildi. Qayta kiring.":"Sizga bazaga kirish ruxsati yo'q.")}
+function renderAcc(){if(!$("accbox"))return;$("accbox").hidden=!isBoss();
+  $("accme").textContent=MYEM?"Siz kirgan akkaunt: "+MYEM:"";
+  var L=ACC.users||[];$("acclist").innerHTML='<div class="x" style="font-size:16px"><span>'+esc(OWNEM)+' <span class="sub">(egasi)</span></span></div>'+
+    (L.length?L.map(function(e){return'<div class="x" style="font-size:16px"><span>'+esc(e)+'</span><button data-ad="'+esc(e)+'" aria-label="O\'chirish">×</button></div>'}).join(""):'<div class="sub">Hozircha ishchi qo\'shilmagan.</div>')}
+$("accadd").onclick=function(){var v=$("accem").value.trim().toLowerCase();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){$("accinfo").textContent="Gmailni to'g'ri yozing";$("accem").focus();return}
+  if(v===OWNEM||(ACC.users||[]).indexOf(v)>=0){$("accinfo").textContent="Bu Gmail allaqachon ro'yxatda";return}
+  FS.doc("config/access").set({users:firebase.firestore.FieldValue.arrayUnion(v)},{merge:true}).then(function(){$("accem").value="";$("accinfo").textContent="Qo'shildi: "+v},function(){$("accinfo").textContent="Saqlanmadi. Internetni tekshiring."})};
+$("acclist").addEventListener("click",function(e){var b=e.target.closest("[data-ad]");if(!b)return;var v=b.dataset.ad;
+  arm(b,"Chiqarilsinmi?",function(){FS.doc("config/access").set({users:firebase.firestore.FieldValue.arrayRemove(v)},{merge:true}).then(function(){$("accinfo").textContent="Chiqarildi: "+v},function(){$("accinfo").textContent="Saqlanmadi. Internetni tekshiring."})})});
+$("acckick").onclick=function(){var b=this,pw=$("kickpw").value,u=AUTH&&AUTH.currentUser;if(!u){return}if(!pw){$("accinfo").textContent="Parolingizni yozing";$("kickpw").focus();return}
+  arm(b,"Boshqa hamma telefonlar chiqadi! Yana bosing",function(){$("accinfo").textContent="Bajarilmoqda...";
+    var np=$("newpw").value.trim();if(np&&np.length<6){$("accinfo").textContent="Yangi parol kamida 6 belgi bo'lsin";return}
+    u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,pw)).then(function(){return np?u.updatePassword(np):null}).then(function(){return u.getIdTokenResult(true)}).then(function(r){
+      MYAT=+(r.claims.auth_time||0);return FS.doc("config/access").set({kick:MYAT-1},{merge:true})}).then(function(){$("kickpw").value="";$("newpw").value="";$("accinfo").textContent="Tayyor: boshqa hamma telefonlar chiqarildi"+(np?", parol almashdi.":".")},
+      function(e){var c=e&&e.code||"";$("accinfo").textContent=c.indexOf("wrong-password")>=0||c.indexOf("invalid")>=0?"Parol noto'g'ri.":c.indexOf("network")>=0?"Internet yo'q.":"Bajarilmadi: "+c})})};
+try{var KM=sessionStorage.getItem("kickmsg");if(KM){sessionStorage.removeItem("kickmsg");setTimeout(function(){$("lerr").textContent=KM},0)}}catch(e){}
 $("logout").onclick=function(){arm(this,"Rostdan chiqasizmi? Yana bosing",function(){if(AUTH)AUTH.signOut().then(function(){location.reload()})})};
 $("imp").onclick=function(){if(!DB){$("impinfo").textContent="Avval bazaga kiring.";return}$("impf").click()};
 $("impf").onchange=function(){var f=this.files[0];if(!f)return;var fr=new FileReader();fr.onload=function(){
@@ -528,7 +570,7 @@ function renderReport(){
   $("hist").innerHTML=hist().length?histHTML(hist(),false):'<div class="sub">Hozircha arxiv bo\'sh. Kun yopilganda hisobot shu yerga saqlanadi.</div>';setSync();showLast()}
 function setTab(t){if(!OWNER)t="s";tab=t;["s","m","r","a","z"].forEach(function(x){$("p"+x).hidden=x!==t});
   document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("on",b.dataset.t===t)});
-  if(t==="m"||t==="z")renderStock();if(t==="r")renderReport();if(t==="a")renderAn();window.scrollTo(0,0)}
+  if(t==="m"||t==="z")renderStock();if(t==="z")renderAcc();if(t==="r")renderReport();if(t==="a")renderAn();window.scrollTo(0,0)}
 
 document.querySelector(".tabs").addEventListener("click",function(e){var b=e.target.closest(".tab");if(b)setTab(b.dataset.t)});
 $("grid").addEventListener("click",function(e){
